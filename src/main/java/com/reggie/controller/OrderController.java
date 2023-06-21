@@ -88,7 +88,7 @@ public class OrderController {
 
 
     @GetMapping("/userPage")
-    public Result<Page> orderList(int page, int pageSize){
+    public Result<Page> orderList(int page, int pageSize) {
         Page pageInfo = new Page(page, pageSize);
         Page pageInfoDto = new Page(page, pageSize);
 
@@ -105,7 +105,7 @@ public class OrderController {
         BeanUtils.copyProperties(pageInfo, pageInfoDto, "records");
         List<Orders> records = pageInfo.getRecords();
         //遍历加入OrderDetail
-        List<OrdersDto> list = records.stream().map((item)->{
+        List<OrdersDto> list = records.stream().map((item) -> {
             OrdersDto ordersDto = new OrdersDto();
 
             BeanUtils.copyProperties(item, ordersDto);
@@ -120,7 +120,7 @@ public class OrderController {
             return ordersDto;
         }).collect(Collectors.toList());
         pageInfoDto.setRecords(list);
-        log.info("list:{}",list);
+        log.info("list:{}", list);
         return Result.success(pageInfoDto);
     }
 
