@@ -15,6 +15,9 @@ import com.reggie.service.SetmealService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -34,13 +37,15 @@ public class SetmealController {
     @Autowired
     private SetmealService setmealService;
 
-    @Autowired
-    private SetmealDishService setmealDishService;
 
     @Autowired
     private CategoryService categoryService;
 
+    @Autowired
+    private CacheManager cacheManager;
+
     @PostMapping
+    @CacheEvict(value = "setmealCache",allEntries = true)
     public Result<String> save(@RequestBody SetmealDto setmealDto){//!!!json数据一定记得加注解！！！
         setmealService.saveWithDish(setmealDto);
         return Result.success("套餐添加成功");
@@ -94,6 +99,7 @@ public class SetmealController {
         return Result.success(setmealDto);
     }
     @PutMapping
+    @CacheEvict(value = "setmealCache",allEntries = true)
     public Result<Setmeal> update(@RequestBody SetmealDto setmealDto) {
         setmealService.updatWithDish(setmealDto);
         return Result.success(setmealDto);
@@ -105,6 +111,7 @@ public class SetmealController {
      * @return
      */
     @DeleteMapping
+    @CacheEvict(value = "setmealCache",allEntries = true)
     public Result<String> delete(@RequestParam List<Long> ids){
 
         setmealService.removeWithDish(ids);
@@ -131,6 +138,8 @@ public class SetmealController {
     }
 
     @GetMapping("/list")
+    @Cacheable(value = "setmealCache", key = "#setmeal.categoryId + '_' + #setmeal.status")
+    //注意，返回值Result需要实现序列化接口
     public Result<List<Setmeal>> list(Setmeal setmeal){
         LambdaQueryWrapper<Setmeal> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(setmeal.getCategoryId() != null, Setmeal::getCategoryId, setmeal.getCategoryId());
@@ -139,12 +148,6 @@ public class SetmealController {
 
         List<Setmeal> list = setmealService.list(queryWrapper);
         return Result.success(list);
-    }
-
-    @GetMapping("/dish/{id}")
-    public Result<List<DishDto>> dish(@PathVariable Long setmealId){
-
-        return null;
     }
 
 
