@@ -11,7 +11,7 @@ spring:
       filter:
         enabled: true
   redis:
-    host: 192.168.187.1
+    host: 127.0.0.1
     post: 6379
     database: 0
 mybatis-plus:

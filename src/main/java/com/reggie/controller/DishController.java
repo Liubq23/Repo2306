@@ -16,9 +16,11 @@ import com.reggie.service.DishService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -40,10 +42,19 @@ public class DishController {
     @Autowired
     private CategoryService categoryService;
 
+    @Autowired
+    private RedisTemplate redisTemplate;
+
+
+
     @PostMapping
     public Result<String> save(@RequestBody DishDto dishDto){
 //        log.info(dishDto.toString());
         dishService.saveWithFlavor(dishDto);
+
+        //删除原来Redis缓存，再直接向数据库申（get方法中）
+        String key = "dish" + dishDto.getCategoryId() + "_" + dishDto.getStatus();
+        redisTemplate.delete(key);
 
         return Result.success("新增菜品成功");
     }
@@ -101,7 +112,9 @@ public class DishController {
     public Result<String> update(@RequestBody DishDto dishDto){
 //        log.info(dishDto.toString());
         dishService.updateWithFlavor(dishDto);
-
+        //删除原来Redis缓存，再直接向数据库申（get方法中）
+        String key = "dish" + dishDto.getCategoryId() + "_" + dishDto.getStatus();
+        redisTemplate.delete(key);
         return Result.success("新增菜品成功");
     }
 
@@ -127,6 +140,19 @@ public class DishController {
 
     @GetMapping("/list")
     public Result<List<DishDto>> get(Dish dish) {
+        //查询Redis数据
+        //构造key
+        String key = "dish" + dish.getCategoryId() + "_" + dish.getStatus();
+        List<DishDto> dishDtoList = null;
+        dishDtoList = (List<DishDto>) redisTemplate.opsForValue().get(key);
+
+        //存在直接从缓存返回
+        if (dishDtoList != null){
+            return Result.success(dishDtoList);
+        }
+
+        //缓存中不存在，向数据库请求并存入缓存
+
         //条件查询器
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
         //根据传进来的categoryId查询
@@ -139,7 +165,7 @@ public class DishController {
         List<Dish> list = dishService.list(queryWrapper);
         log.info("查询到的菜品信息list:{}", list);
         //item就是list中的每一条数据，设置category和flavor
-        List<DishDto> dishDtoList = list.stream().map((item) -> {
+        dishDtoList = list.stream().map((item) -> {
             //创建一个dishDto对象
             DishDto dishDto = new DishDto();
             //将item的属性全都copy到dishDto里
@@ -166,6 +192,10 @@ public class DishController {
             return dishDto;
             //将所有返回结果收集起来，封装成List
         }).collect(Collectors.toList());
+
+        //从数据库来的新数据存入Redis，过期时间一小时
+        redisTemplate.opsForValue().set(key, dishDtoList, 60, TimeUnit.MINUTES);
+
         return Result.success(dishDtoList);
     }
 
